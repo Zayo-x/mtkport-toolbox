@@ -1,0 +1,259 @@
+{
+  "serial": "192.168.0.47:5555",
+  "via": "wifi",
+  "root": true,
+  "dumchar_raw": "Part_Name\tSize\tStartAddr\tType\tMapTo\r\npreloader    0x0000000000c00000   0x0000000000000000   2   /dev/misc-sd\r\nmbr          0x0000000000080000   0x0000000000000000   2   /dev/block/mmcblk0\r\nebr1         0x0000000000080000   0x0000000000080000   2   /dev/block/mmcblk0p1\r\npro_info     0x0000000000300000   0x0000000000100000   2   /dev/block/mmcblk0\r\nnvram        0x0000000000500000   0x0000000000400000   2   /dev/block/mmcblk0\r\nprotect_f    0x0000000000a00000   0x0000000000900000   2   /dev/block/mmcblk0p2\r\nprotect_s    0x0000000000a00000   0x0000000001300000   2   /dev/block/mmcblk0p3\r\nseccfg       0x0000000000020000   0x0000000001d00000   2   /dev/block/mmcblk0\r\nuboot        0x0000000000060000   0x0000000001d20000   2   /dev/block/mmcblk0\r\nbootimg      0x0000000000600000   0x0000000001d80000   2   /dev/block/mmcblk0\r\nrecovery     0x0000000000600000   0x0000000002380000   2   /dev/block/mmcblk0\r\nsec_ro       0x0000000000040000   0x0000000002980000   2   /dev/block/mmcblk0\r\nmisc         0x0000000000080000   0x00000000029c0000   2   /dev/block/mmcblk0\r\nlogo         0x0000000000300000   0x0000000002a40000   2   /dev/block/mmcblk0\r\nexpdb        0x0000000000a00000   0x0000000002d40000   2   /dev/block/mmcblk0\r\nandroid      0x0000000032000000   0x0000000003740000   2   /dev/block/mmcblk0p4\r\ncache        0x000000000e200000   0x0000000035740000   2   /dev/block/mmcblk0p5\r\nusrdata      0x0000000052c00000   0x0000000043940000   2   /dev/block/mmcblk0p6\r\nfat          0x00000000515c0000   0x0000000096540000   2   /dev/block/mmcblk0p7\r\nbmtpool      0x0000000001500000   0x00000000ff3f00a8   2   /dev/block/mmcblk0\r\nPart_Name:Partition name you should open;\r\nSize:size of partition\r\nStartAddr:Start Address of partition;\r\nType:Type of partition(MTD=1,EMMC=2)\r\nMapTo:actual device you operate\r\n",
+  "captured": "2026-10-17 14:05:44",
+  "props": {
+    "ro.product.model": "P100SC-HELOWIN",
+    "ro.product.brand": "Boyue",
+    "ro.product.manufacturer": "Boyue",
+    "ro.product.device": "A102",
+    "ro.product.name": "lineage_A102",
+    "ro.product.board": "MT6572",
+    "ro.product.cpu.abi": "armeabi-v7a",
+    "ro.product.locale": "zh-CN",
+    "ro.board.platform": "mt6572",
+    "ro.hardware": "mt6572",
+    "ro.build.version.release": "7.1.2",
+    "ro.build.version.sdk": "25",
+    "ro.build.version.incremental": "05bcbc3135",
+    "ro.build.version.security_patch": "2018-01-05",
+    "ro.build.display.id": "lineage_A102-userdebug 7.1.2 NJH47F 05bcbc3135 test-keys",
+    "ro.build.type": "userdebug",
+    "ro.build.tags": "test-keys",
+    "ro.build.fingerprint": "Micromax/lineage_A102/A102:7.1.2/NJH47F/05bcbc3135:userdebug/test-keys",
+    "ro.build.date.utc": "1517333766",
+    "ro.sf.lcd_density": "220",
+    "ro.sf.hwrotation": "180",
+    "ro.opengles.version": "131072",
+    "ro.mediatek.platform": "MT6572",
+    "ro.mediatek.version.release": "ALPS.W10.24.p0",
+    "ro.mediatek.version.branch": "KK1.MP1",
+    "persist.sys.usb.config": "adb",
+    "ro.adb.secure": "0",
+    "ro.debuggable": "1",
+    "ro.secure": "1",
+    "dalvik.vm.heapsize": "128m",
+    "ro.zygote": "zygote32",
+    "gsm.version.baseband": "MOLY.WR8.W1315.MD.WG.MP.V62.P1, 2014/11/07 13:58"
+  },
+  "kernel": {
+    "release": "3.4.67",
+    "version": "#1 SMP PREEMPT Thu Aug 11 19:21:30 HKT 2016",
+    "arch": "armv7l",
+    "major_minor": "3.4"
+  },
+  "chipset": {
+    "raw": "mt6572",
+    "family": "mt6572",
+    "num": "6572",
+    "mtk": true
+  },
+  "android": {
+    "release": "7.1.2",
+    "sdk": 25,
+    "incremental": "05bcbc3135",
+    "display_id": "lineage_A102-userdebug 7.1.2 NJH47F 05bcbc3135 test-keys",
+    "fingerprint": "Micromax/lineage_A102/A102:7.1.2/NJH47F/05bcbc3135:userdebug/test-keys"
+  },
+  "product": {
+    "brand": "Boyue",
+    "model": "P100SC-HELOWIN",
+    "device": "A102",
+    "name": "lineage_A102",
+    "manufacturer": "Boyue",
+    "board": "MT6572"
+  },
+  "display": {
+    "width": 480,
+    "height": 800,
+    "density": 220,
+    "hwrotation": "180"
+  },
+  "memory_mb": 463,
+  "partitions": [
+    {
+      "name": "preloader",
+      "size": 12582912,
+      "start": 0,
+      "type": "2",
+      "map_to": "/dev/misc-sd",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "mbr",
+      "size": 524288,
+      "start": 0,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "ebr1",
+      "size": 524288,
+      "start": 524288,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0p1",
+      "format": "mtk-dumchar",
+      "sysfs_start": 524288,
+      "sysfs_size": 1024,
+      "offset_ok": true,
+      "size_ok": false
+    },
+    {
+      "name": "pro_info",
+      "size": 3145728,
+      "start": 1048576,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "nvram",
+      "size": 5242880,
+      "start": 4194304,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "protect_f",
+      "size": 10485760,
+      "start": 9437184,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0p2",
+      "format": "mtk-dumchar",
+      "sysfs_start": 9437184,
+      "sysfs_size": 10485760,
+      "offset_ok": true
+    },
+    {
+      "name": "protect_s",
+      "size": 10485760,
+      "start": 19922944,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0p3",
+      "format": "mtk-dumchar",
+      "sysfs_start": 19922944,
+      "sysfs_size": 10485760,
+      "offset_ok": true
+    },
+    {
+      "name": "seccfg",
+      "size": 131072,
+      "start": 30408704,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "uboot",
+      "size": 393216,
+      "start": 30539776,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "bootimg",
+      "size": 6291456,
+      "start": 30932992,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "recovery",
+      "size": 6291456,
+      "start": 37224448,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "sec_ro",
+      "size": 262144,
+      "start": 43515904,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "misc",
+      "size": 524288,
+      "start": 43778048,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "logo",
+      "size": 3145728,
+      "start": 44302336,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "expdb",
+      "size": 10485760,
+      "start": 47448064,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    },
+    {
+      "name": "android",
+      "size": 838860800,
+      "start": 57933824,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0p4",
+      "format": "mtk-dumchar",
+      "sysfs_start": 57933824,
+      "sysfs_size": 838860800,
+      "offset_ok": true
+    },
+    {
+      "name": "cache",
+      "size": 236978176,
+      "start": 896794624,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0p5",
+      "format": "mtk-dumchar",
+      "sysfs_start": 896794624,
+      "sysfs_size": 236978176,
+      "offset_ok": true
+    },
+    {
+      "name": "usrdata",
+      "size": 1388314624,
+      "start": 1133772800,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0p6",
+      "format": "mtk-dumchar",
+      "sysfs_start": 1133772800,
+      "sysfs_size": 1388314624,
+      "offset_ok": true
+    },
+    {
+      "name": "fat",
+      "size": 1364983808,
+      "start": 2522087424,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0p7",
+      "format": "mtk-dumchar",
+      "sysfs_start": 2522087424,
+      "sysfs_size": 1364983808,
+      "offset_ok": true
+    },
+    {
+      "name": "bmtpool",
+      "size": 22020096,
+      "start": 4282319016,
+      "type": "2",
+      "map_to": "/dev/block/mmcblk0",
+      "format": "mtk-dumchar"
+    }
+  ]
+}

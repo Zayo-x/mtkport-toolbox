@@ -1,0 +1,120 @@
+{
+  "name": "博阅 P100SC-HELOWIN（MT6572 / 原厂 4.4.2 → LineageOS 14.1 / 7.1.2）",
+  "note": [
+    "这份配置就是本项目实际刷成功的那一版，boot 部分可以被完整复现：",
+    "用移植包里的 boot.img 作为输入跑 patch，输出应当与 F-boot-v6-修存储与zram.img",
+    "逐字节相同（md5 ee0cf8cf39e9a3dbca3ee32f825ee63e）。这就是最好的自测。",
+    "system 部分只列了当初确实从原厂搬过来的东西（传感器/显示/温控），",
+    "其余交给移植包自己的通用文件 —— 搬多了反而会互相打死。"
+  ],
+  "boot": {
+    "mode": "inplace",
+    "required": [
+      "init.mt6572.usb.rc",
+      "default.prop",
+      "fstab.mt6572",
+      "enableswap.sh"
+    ],
+    "edits": [
+      {
+        "file": "init.mt6572.usb.rc",
+        "type": "replace",
+        "old": "setprop sys.usb.vid 17EF",
+        "new": "setprop sys.usb.vid 18D1",
+        "why": "改成 Google 的 VID，Windows 自带驱动就能认出 adb/MTP，不用装联想驱动",
+        "expect": "setprop sys.usb.vid 18D1"
+      },
+      {
+        "file": "init.mt6572.usb.rc",
+        "type": "replace",
+        "old": "idProduct 7495",
+        "new": "idProduct D001",
+        "why": "adb 单功能配置的 PID 改成 18D1:D001（Nexus 的 adb PID）",
+        "expect": "idProduct D001"
+      },
+      {
+        "file": "init.mt6572.usb.rc",
+        "type": "replace",
+        "old": "idProduct 7718",
+        "new": "idProduct 4E12",
+        "why": "mtp,adb 复合配置的 PID 改成 18D1:4E12，Windows 会直接当便携设备",
+        "expect": "idProduct 4E12"
+      },
+      {
+        "file": "default.prop",
+        "type": "prop",
+        "key": "ro.adb.secure",
+        "value": "0",
+        "why": "关掉 adb 授权弹窗；这块屏点弹窗很费劲，而且 adb 本来就要 root",
+        "expect": "ro\\.adb\\.secure=0"
+      },
+      {
+        "file": "default.prop",
+        "type": "prop",
+        "key": "persist.sys.usb.config",
+        "value": "mtp,adb",
+        "why": "默认就插上能传文件 + 能 adb，不用每次去设置里点",
+        "expect": "persist\\.sys\\.usb\\.config=mtp,adb"
+      },
+      {
+        "file": "fstab.mt6572",
+        "type": "regex",
+        "pattern": "voldmanaged=sdcard0:\\S+",
+        "repl": "voldmanaged=sdcard0:7,nonremovable,noemulatedsd",
+        "why": "本机没有 /dev/block/platform/*/by-name，emmc@fat 解析不了 ⇒ 必须写分区号 7；noemulatedsd 让这张 FAT 卡直接当 /sdcard（原厂 4.4 就是这么干的）",
+        "expect": "voldmanaged=sdcard0:7,nonremovable,noemulatedsd"
+      },
+      {
+        "file": "enableswap.sh",
+        "type": "replace",
+        "old": "tiny_mkswap",
+        "new": "mkswap",
+        "why": "移植包里根本没有 tiny_mkswap 这个文件，只有 toybox 的 mkswap ⇒ 不换这一行，zram 永远起不来",
+        "expect": "mkswap /dev/block/zram0"
+      },
+      {
+        "file": "enableswap.sh",
+        "type": "replace",
+        "old": "tiny_swapon",
+        "new": "swapon",
+        "why": "同上，tiny_swapon 也不存在",
+        "expect": "swapon /dev/block/zram0"
+      }
+    ]
+  },
+  "system": {
+    "copy_from_stock": [
+      "lib/hw/sensors.default.so",
+      "lib/hw/gralloc.mt6572.so",
+      "lib/hw/hwcomposer.mt6572.so",
+      "lib/libMali.so",
+      "etc/.tp/.ht120.mtc",
+      "etc/.tp/thermal.conf",
+      "etc/.tp/thermal.off.conf",
+      "etc/firmware/"
+    ],
+    "delete": [
+      "etc/install-recovery.sh"
+    ],
+    "note": [
+      "sensors.default.so：原厂与移植包这个文件大小一样，但内容不同（md5 不一样），原厂那份才对得上这块板的加速度计。",
+      "显示三件套（gralloc / hwcomposer / libMali）：必须成套用原厂的，混搭会黑屏或开机动画后死循环。",
+      "etc/.tp/*：原厂温控阈值（注意这个目录名是点开头的 .tp），是给这台的机壳调的，别用通用值。",
+      "etc/firmware/ 结尾带斜杠 = 整个目录树（含 mt6627/ 子目录）：字库/触摸/射频固件，留原厂的当保险。",
+      "etc/install-recovery.sh：不留，免得每次开机把 recovery 刷回去。"
+    ]
+  },
+  "scatter": {
+    "flash_only": [
+      "BOOTIMG"
+    ],
+    "images": {
+      "BOOTIMG": "boot-patched.img"
+    },
+    "note": "先用 SPFlashTool 只刷 BOOTIMG 验证开机；确认没问题再整机刷（system/data/cache 一起）。"
+  },
+  "device": "A102",
+  "kernel": "3.4.67",
+  "chipset": "mt6572",
+  "model": "P100SC-HELOWIN"
+}

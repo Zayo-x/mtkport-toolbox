@@ -1,0 +1,18 @@
+# ==== 巨型依赖 / 工作产物（不入 git，单独下载） ====
+# mtkclient 整套（462MB，开源：github.com/bkerler/mtkclient）
+vendor/
+# 工作区（刷机产物、测试镜像，几十 GB）
+_工作区/
+# 自测产物（1.5GB）
+_自测/
+
+# ==== Python ====
+__pycache__/
+*.pyc
+*.pyo
+
+# ==== 临时文件 ====
+*.log
+*_test*.json
+.DS_Store
+Thumbs.db

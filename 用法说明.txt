@@ -1,0 +1,369 @@
+M附：自测覆盖了什么（两份）
+  自测-端到端.py     —— 离线全套：boot 解包/重打包/规则/往返、system 解包打包复核、scatter、dump-landmarks、CLI，普通 33 项、--full 37 项
+  自测-自动化.py     —— 自动化层：预设匹配严格性、FAT 号推导、boot/system 规则草稿、刷机目录自检，24 项；加 --net 再测站点选包 29 项
+TK 系统移植工具箱 —— 用法说明
+======================================================================
+
+>>> 如果读这份文档的是 AI 代理 / 要在新机器上自动部署，先看同目录《AI部署说明.md》，这份是命令参考。
+
+一、这是什么
+----------------------------------------------------------------------
+把一次已经刷成功、跑到可日用的移植过程，固化成了可以重复使用的命令行工具。
+它只干三类事，但这三类事占了移植工作量的 90%：
+
+  1) boot.img：看结构、解包、按规则改（fstab / props / *.rc / 脚本）、重新打包
+  2) system.img：解包（含 sparse）、按规则把原厂文件搬进移植包、重新打成
+                 raw ext4（尺寸严格等于分区大小）
+  3) scatter：看分区表、生成"只刷某几个分区"的刷机文件夹、核对镜像尺寸、
+              验证整盘 dump 里的分区偏移
+
+它不会替你做"哪台机器该搬哪个 HAL"这种判断 —— 那部分写进配置文件（configs\*.json），
+所以每台机器的移植经验都能留下来、下次直接复用，而不是散落在一堆一次性脚本里。
+
+实测可复现的硬结论：
+  · 用本项目移植包里的 boot.img 跑 patch，输出与当初手工做出来的
+    F-boot-v6-修存储与zram.img **逐字节相同**（md5 ee0cf8cf39e9a3dbca3ee32f825ee63e）
+  · unpack → pack 往返，md5 与原镜像一致（1310d377553c6e42f3318a8a60b3fb86）
+  · 同样的规则换成"改目录树再打包"（--from-tree）也能得到同样结果
+
+
+二、一分钟上手
+----------------------------------------------------------------------
+    cd "D:\deepseek-harness\安卓折腾\移植工具箱"
+
+    :: 1. 先看这是什么机器、什么布局
+    python mtkport.py info  boot.img
+
+    :: 2. 解包，看 ramdisk 里有哪些文件
+    python mtkport.py unpack boot.img -o 工作\boot
+    python mtkport.py ls     boot.img fstab
+
+    :: 3. 按配置改（最常用）
+    python mtkport.py patch boot.img --rules configs\p100-lineage14.json -o boot-new.img
+
+    :: 4. 只刷 boot 的刷机文件夹
+    python mtkport.py scatter-flash MT6572_Android_scatter.txt ^
+             --only BOOTIMG --images BOOTIMG=boot-new.img -o 刷机-只boot
+
+    :: 5. 整机 system
+    python mtkport.py sys-extract 原厂\system.img -o 工作\system-stock
+    python mtkport.py sys-merge --stock 工作\system-stock --donor 工作\system-donor ^
+             --rules configs\p100-lineage14.json -o 工作\system-merged
+    python mtkport.py sys-pack 工作\system-merged -o system-new.img ^
+             --size 0x32000000 --rom 移植包.zip
+    python mtkport.py sys-verify system-new.img --tree 工作\system-merged
+
+    :: 6. 每次改完都跑一遍自测（10 秒）
+    python 自测-端到端.py
+
+
+三、一条命令跑完：auto（自动扫描 + 选包 + 备份 + 移植 + 出刷机目录）
+
+    mtkport auto                                  什么都不用给，全自动
+    mtkport auto --android 7.1                    只要 7.1 的包
+    mtkport auto --donor D:\x.zip                 用本地已有的包（不下载）
+    mtkport auto --stock-system 原厂\system.img    指定原厂 system（不给就用备份里的）
+    mtkport auto --scatter 原厂\MT6572_Android_scatter.txt   给了才生成刷机目录
+    mtkport auto --flash mtk                      生成后直接用 mtkclient 刷进去
+    mtkport auto --flash spft                     生成后拉起 SP Flash Tool
+
+它按顺序做八件事，产物都留在 --work 目录（默认 工具箱\_工作区\auto）。
+  第 8 步（刷机目录）如果没给 --scatter：会自动按设备的 /proc/dumchar_info 反推一张，
+  所以"找不到原厂 scatter"不再卡住流程（反推结果可用 scatter-gen --compare 复核）。
+重跑会跳过已完成的步骤，所以中途断了直接再跑一遍就行：
+
+    1. 定规则    有同机型预设就用预设（实测过的）；没有就自动推一份草稿，
+                 并列出"需要人确认的地方"（fstab 的原始写法、USB vid/pid、屏幕方向）
+    2. 备份      按分区表把 pro_info/nvram/protect/bootimg/recovery/logo/system
+                 等 dd 到本地；本地和设备各算一遍 md5，两边对上才算备份成功
+    3. 选包      从 kc.fuquan.moe 按"内核一致 + 安卓版本 + 型号命中 + 轻量"打分取第一名
+    4. 解开包    boot.img + system 树（包里只给 system.img 也能处理）
+    5. 原厂树    解原厂 system.img，用它的厂商库/固件（lib/hw、etc/firmware、
+                 etc/.tp、带芯片名的 lib*.so）覆盖移植包的
+    6. 合并打包  sys-merge + sys-pack，尺寸严格等于分区表里的 system 大小
+    7. 打 boot   按规则改 fstab/props/rc，原地替换 ramdisk、保持镜像长度不变
+    8. 刷机目录  生成只勾 BOOTIMG/ANDROID 的 scatter 目录 + 刷机说明.txt
+
+只想用其中某一步：
+
+    mtkport scan --save 设备.json          认机器（内核/芯片/分区表/屏幕/内存/root）
+    mtkport roms --profile 设备.json       看候选包打分和理由（不下载）
+    mtkport fetch --path <站内路径>        只下载（支持断点续传与大小校验）
+    mtkport roms --platform <目录名>       站内没你的芯片时，手动指一个相近平台目录
+    mtkport roms --any-kernel             没有同内核版本目录时，就近挑一个（兜底，刷前须确认）
+    mtkport backup -o 备份\2026-10-07      只备份（双端 md5 校验）
+    mtkport backup-verify 备份\2026-10-07  复核备份有没有坏
+    mtkport flash-check 刷机目录           刷前自检：镜像有没有超出分区、要刷哪几个
+    mtkport flash-open 刷机目录            自检通过后拉起 SPFT 并弹出刷机目录
+    mtkport flash-wait                     刷完等开机，把新系统的型号/版本/内核念出来
+
+最后一厘米为什么还得人动手：MT6572 刷 system 必须进 preloader/BROM，没有 fastboot；
+电脑这边只有 SP Flash Tool（图形界面，要点一下 Download、拔插一次线）或 mtkclient
+（能全自动，但要另装 python 包并给 BROM 设备装 libusb 驱动）。所以工具把能自动的
+都做了：目录、scatter、勾选、自检、拉起工具、刷后验机，人只剩两下。
+
+站内目录的规律（看懂这个就明白为什么能自动选包）：
+
+    5.移植包大全 / <芯片平台> / <内核版本>   <安卓版本> / <包名>
+    例：5.移植包大全\MT6572&6582&6592&6574&6571&8384\3.4.67     7.1\
+
+"移植不换内核"这条铁律，正好变成"按内核版本挑目录"——可以判定，不会猜错。
+
+想连刷机都不用点：装一次 UsbDk 驱动，之后用 mtkclient 命令行直写
+----------------------------------------------------------------------
+    mtkport doctor                             先体检，缺什么它会说
+    右键管理员运行 → 工具\装UsbDk驱动-右键管理员运行.bat
+    mtkport flash-mtk _工作区\auto\flash       然后一条命令刷完 + 自动验开机
+
+  · UsbDk 是 mtkclient 在 Windows 上接管 BROM 设备的桥，装一次就行，装完不用重启
+  · flash-mtk 会自己等设备：你把平板关机、插线，它一连上就开始写，写完 reset 再验开机
+  · mtkclient 用的是本机已有的 D:\MTK工具\MTKClient GUI 2.0\mtkclient（自带 python 运行时）
+  · 想换一套就设环境变量 MTKCLIENT_DIR，或给 --mtk
+  · 没有 UsbDk / 想看得见的界面，就继续用 flash-open + SP Flash Tool（点两下）
+
+----------------------------------------------------------------------
+四、依赖的外部程序
+----------------------------------------------------------------------
+   7z            解 system.img（读 ext4 镜像）
+   make_ext4fs   打 system.img
+
+工具按这个顺序找：环境变量 MTKPORT_BIN 指的目录 → 内置候选路径 → PATH。
+内置候选（本机已有，可直接用）：
+   D:\MTK工具\rom制作工具破解版\7z.exe
+   D:\MTK工具\mtk-garbage-porttool\bin\win\x86_64\make_ext4fs.exe
+   换了电脑就把这两个抄到 PATH，或
+   set MTKPORT_BIN=D:\你的工具目录
+
+Python 只要 3.x 标准库，不需要装任何第三方包。
+
+
+五、命令一览
+----------------------------------------------------------------------
+  info <boot.img...>            看头部：page、内核大小/地址、ramdisk 槽位、
+                                MTK 标签长度、压缩方式、cpio 条目数、md5
+  unpack <boot.img> -o DIR      解出 kernel / ramdisk.cpio / ramdisk.mtktag /
+                                ramdisk-tree\（可读的目录树）/ bootimg.json
+  ls <boot.img> [正则]          列 ramdisk 条目（权限、大小、软链接目标）
+  cat <boot.img> <条目名>       把条目内容打到屏幕（核对改动最方便）
+  patch <boot.img> --rules R.json -o OUT
+                                按规则改 ramdisk 再打包（核心命令）
+        --dry-run               只跑规则、不写镜像（先看报告）
+        --mode inplace|rebuild  inplace=原地换 gzip（默认，偏移/长度全不变）
+                                rebuild=新 ramdisk 更大时重排布局
+        --force                 规则没命中/无变化时也硬着头皮出镜像
+  pack <解包目录> -o OUT        把解包目录重新打成 boot.img
+        --ref 原镜像            头部信息、MTK 标签照它来（推荐）
+        --from-tree             从 ramdisk-tree\ 重建（直接改树里的文件时用）
+  sys-extract <system.img> -o DIR [--force]
+                                解 system.img（sparse 会自动展开）
+  sys-pack <树> -o OUT --size 0x32000000 [--rom 卡刷包.zip]
+                                打 raw ext4；--rom 会从 updater-script 取
+                                精确的权限/属主/SELinux/软链接
+  sys-merge --stock DIR --donor DIR --rules R.json -o DIR
+                                以移植包为底，把原厂的 HAL/固件/配置搬过来
+  sys-verify <system.img> --tree DIR
+                                把打好的镜像再解一遍，和源目录逐个比 md5
+                                （7z 报 "Unsupported Method" 是它解不出 ext4 里的
+                                 符号链接，属正常，工具会自动跳过这部分）
+  scatter-summary <scatter>     列 20 个分区：大小、起址、当前勾选、文件名
+  scatter-flash <scatter> --only BOOTIMG [--images 分区=镜像] -o DIR
+                                生成只刷指定分区的刷机文件夹（其余 is_download:false）
+  scatter-check <scatter> --dir DIR
+                                核对文件夹里的镜像是否超出分区大小
+  scatter-gen <dumchar.txt> -o out.txt [--images 分区=镜像 ...] [--compare 已知scatter]
+  scatter-gen --profile 设备档案.json -o out.txt [--images 分区=镜像 ...]
+        从设备档案的分区表出 scatter（档案里带 sysfs 真实起址，会顺带做偏移校验）
+                                没有原厂 scatter 时，按 /proc/dumchar_info 反推一张
+                                （偏移 = preloader 起按分区顺序累加，实测与原厂逐项一致）
+        --compare                和一张已知正确的 scatter 对比，验证推得对不对
+        --yes                    确认这张表可用于刷机（不加只是"生成+展示"）
+  dump-landmarks <整盘dump> --dumchar dumchar.txt
+                                用 dumchar 的 StartAddr 当 mmcblk0 字节偏移，
+                                在各分区起址上找 ANDROID!/ext4/55AA 验证偏移
+  doctor                       体检：7z/make_ext4fs/SPFT/mtkclient/UsbDk/adb/预设
+                                缺什么直接告诉你补哪一步（新手先跑这个）
+  flash-mtk <刷机目录>          用 mtkclient 走 BROM 直写（命令行全自动刷机）
+        --now                    平板已经在 BROM 里了，别等提示
+        --mtk DIR                mtkclient 根目录（默认自动找）
+        --no-reset / --no-wait   写完不重启 / 写完不等开机验证
+
+每个命令后面加 -h 都有独立说明。
+
+
+六、规则文件怎么写（configs\*.json）
+----------------------------------------------------------------------
+结构：
+   {
+     "name": "机型说明",
+     "boot": {
+       "mode": "inplace",                  // 可省，默认 inplace
+       "required": ["fstab.mt6572"],       // 这些条目必须存在，缺一个就失败
+       "edits": [ ...操作... ]
+     },
+     "system": {
+       "copy_from_stock": ["lib/hw/xxx.so"],   // 从原厂搬进移植包的路径
+       "delete": ["etc/install-recovery.sh"]   // 从移植包删掉的路径
+     }
+   }
+
+七种操作（每条都可以带 "why" 写理由，会打进报告；带 "optional": true 表示允许不命中）：
+
+  {"file":"default.prop", "type":"prop",    "key":"ro.adb.secure", "value":"0"}
+        改 key=value：有这一行就整行替换，没有就追加到末尾。
+
+  {"file":"fstab.mt6572","type":"replace", "old":"emmc@fat", "new":"7"}
+        纯文本替换。"old" 出现 0 次 ⇒ 整份规则判定失败（防"以为改了其实没改"）。
+        "count": 3 可以要求必须出现恰好 3 次。
+
+  {"file":"init.rc",     "type":"regex",   "pattern":"voldmanaged=sdcard0:\S+",
+                                             "repl":"voldmanaged=sdcard0:7,noemulatedsd"}
+        正则替换（Python re.M 语义）。JSON 里反斜杠要写两次。
+
+  {"file":"init.rc",     "type":"append",  "text":"on property:sys.boot_completed=1\n    write ..."}
+        在文件末尾追加；text 里的 \n 会被还原成换行。
+
+  {"file":"dsh-storage.sh","type":"add",   "source":"files/dsh-storage.sh", "mode":"0755"}
+        用本机文件新增/覆盖一个条目（source 相对规则文件所在目录）。
+
+  {"file":"install-recovery.sh","type":"delete"}
+        从 ramdisk 删掉。
+
+  {"file":"init.dsh.rc", "type":"chmod",   "mode":"0755"}
+        只改权限。
+
+  每条操作的 "expect": "正则" 会在改完之后再验一次，匹配不上就报错。
+  这是本工具跟"改完不知道改没改"最大的区别 —— 当初用 toybox sed 改 fstab，
+  因为 sed 不支持 \b，静默什么都没干，白折腾很久。
+
+
+七、system 的搬运规则：为什么只搬这几样
+----------------------------------------------------------------------
+sys-merge 的语义是：整体拷贝移植包 → 用原厂的文件覆盖 copy_from_stock 命中的路径 →
+按 delete 删掉指定文件。路径写法三种：
+   "lib/hw/sensors.default.so"   精确一个文件
+   "etc/firmware/*"              这一层
+   "etc/firmware/" 或 ".../**"   整个目录树（含子目录，打包固件这种要用这个）
+规则一条都没匹配上时工具会打 "!" 警告 —— 拼错路径最典型的后果就是"以为搬了原厂 HAL，
+其实一个都没搬"，然后开机黑屏，还查不出原因。
+
+一个通用移植包能在很多机器上开机，靠的是它自己的通用 HAL；
+但"这块屏、这颗传感器、这个温控参数、这套字库"只有原厂的才对。
+
+本项目的结论（configs\p100-lineage14.json 里就是这些）：
+   搬：lib/hw/sensors.default.so、显示三件套（gralloc.mt6572.so /
+       hwcomposer.mt6572.so / libMali.so）、etc/thermal*.conf、
+       etc/.ht120.mtc、etc/firmware/*
+   删：etc/install-recovery.sh（免得每次开机把 recovery 刷回去）
+   不搬：音频 HAL 必须整套用移植包或整套用原厂 —— 混搭会在
+       AudioOut_D 里立刻 SIGSEGV（fault addr 0x18），tombstone 还是 0 字节，
+       极难查。这条是踩过的坑，别重来。
+
+
+八、P100 的完整实战流程（可以当模板）
+----------------------------------------------------------------------
+  前置：SPFlashTool 5.1812、MTK_AllInOne_DA.bin、scatter（原厂那份别改）
+       平板 480x800、MT6572、3.4.67 内核、原厂 4.4.2
+
+  1. 备份：SPFT 里 Read Back 把整盘读出来（至少 boot / recovery / system / nvram / protect_*）
+  2. 只刷 boot 验证：patch 出 boot-new.img → scatter-flash --only BOOTIMG →
+     SPFT 选 Download Only、点 Download、再插 USB
+  3. 开机看到动画 ⇒ boot 这条链通了；黑屏/不进系统 ⇒ 把原厂 boot 刷回去重来
+  4. 整机刷：system.img + cache.img + userdata.img（userdata 第一次可刷空白）
+     刷完先用 sys-verify 确认 system 内容对，再上机测
+  5. 能进系统后按"哪个子系统不正常"逐项排：触摸/显示/WiFi/蓝牙/声音/按键/存储
+  6. 存储类问题先看两件事：/proc/dumchar_info 的分区偏移，和 ramdisk 里的 fstab
+  7. 所有临时改动（ramdisk 里改的、/system 里加的）最终都要落到镜像或开机脚本里，
+     否则重启就没了 —— 本项目最后的做法是 /system/etc/init/*.rc + /system/bin/*.sh
+
+  P100 存储问题的完整答案（已经写进配置）：
+    本机没有 /dev/block/platform/*/by-name ⇒ fstab 里任何 emmc@xxx 都解析不了
+    ⇒ 必须写分区号 voldmanaged=sdcard0:7,nonremovable,noemulatedsd
+    ⇒ 而且 fstab 第一列必须是 sysfs 通配 /devices/platform/mtk-msdc.0/mmc_host*
+      （写成 /dev/block/mmcblk0 会让 vold 一个卷都不建）
+
+
+九、血泪教训（工具已经替你挡住的）
+----------------------------------------------------------------------
+  1. ramdisk 里 fstab 的第一列是设备**通配符**，不是设备节点。改成具体节点 = vold 罢工。
+  2. toybox sed 不支持 \b，静默无操作。所以工具里 replace/regex 必须命中，命不中就失败。
+  3. 镜像尺寸必须严格等于分区大小，SPFT 才会安心写。sys-pack 会强制对齐并在尺寸不符时报错。
+  4. inplace 模式最安全：长度、偏移、内核、头部地址都不动，只换 ramdisk 的 gzip 流。
+     rebuild 只在"新 ramdisk 比原槽位大"时用。
+  5. gzip 压缩级别取 9/6/5/1 里最短的、mtime=0 —— 这样结果可复现，
+     才能做到"同一份规则跑两遍，md5 一样"。
+  6. /sdcard 可能是 /storage 的 tmpfs，写测试会假成功。验证要拿原始挂载点
+     （/mnt/media_rw/<UUID>）比对，不要只信 /sdcard。
+  7. adb 抢不到设备：检查有没有别的程序（模拟器、第三方手机助手）起了自己的
+     adb server 占着 WinUSB 句柄；用 wifi adb（adb connect IP:5555）最省事。
+  8. 别用 logcat 判断早期事件 —— 缓冲区很小，十几分钟就冲掉了。要看文件/挂载/服务状态。
+  9. 极简 scatter（只留两行）会让 SPFT 报 "PMT changed for the ROM" 而拒刷；
+     要保留完整 20 行分区表，只把非目标分区的 is_download 设成 false。
+ 10. dump 偏移：/proc/dumchar_info 的 StartAddr 就是 /dev/block/mmcblk0 的字节偏移；
+     scatter 的 linear_start_addr 属于 flasher 空间，和它差一个常量（本机 0xC00000）。
+     用 dump-landmarks 可以在真实 dump 上验证这一点，再动手写盘。
+ 11. system.img 别用 md5 判断"是不是一样"：make_ext4fs 会写时间戳/文件系统 UUID，
+     同样的输入打两次也可能不同。判断标准是"尺寸等于分区大小 + 内容一致"，
+     所以有 sys-verify 这条命令（本项目实测：1697 个普通文件逐个 md5 一致，0 不同 0 缺失）。
+
+
+十、名词对照
+----------------------------------------------------------------------
+  page            镜像分页大小（本机 2048）。头部占第一页，内核从第二页开始。
+  MTK 标签         ramdisk 槽位前面那 512 字节（magic 0x58881688），是 MTK 自己的元数据。
+  ramdisk 槽位     ramdisk_size 给出的固定空间；inplace 模式下新 gzip 必须塞得进去。
+  cpio(newc)      ramdisk 内部格式；070701 开头，每项 110 字节头 + 文件名 + 4 字节对齐 + 数据。
+  sparse 镜像     带 chunk 压缩的 system.img（super 镜像也常用）；本工具会自动展开。
+  scatter         SPFT 的分区表 txt（GBK + CRLF），决定每个分区的名字、大小、要不要下载。
+  dumchar_info    设备 /proc 里的分区表（名字、大小、起址），起址就是 mmcblk0 的偏移。
+
+
+十一、报错与处理
+----------------------------------------------------------------------
+  "找不到程序：7z"            没装 7-Zip 或路径不同 ⇒ 设 MTKPORT_BIN
+  "不是 boot.img（开头不是 ANDROID!）"  文件不对，或拿到的是 sparse/被解压坏的镜像
+  "ramdisk 段里找不到已知压缩魔数"      这台的 ramdisk 用的 lz4/xz，本工具只直接支持
+                                        gzip / 未压缩 cpio；先用 magiskboot 转成 gzip
+  "新 ramdisk 超出原槽位"    加 --mode rebuild（会重排布局，头部 ramdisk_size 改大）
+  "没找到要替换的 xxx"       规则和实际文件对不上：先 `cat` 看一眼真实内容再改规则
+  "规则跑完但没有任何条目变化"  说明你的 old 值和文件里的写法不一致（大小写/空格/全角）
+  "镜像尺寸 ≠ 分区尺寸"      --size 抄错，或 make_ext4fs 参数不对；照 scatter 的
+                             partition_size 原样填（如 0x32000000）
+
+
+附：自测覆盖了什么（自测-端到端.py，33 项全绿；--full 再加 4 项）
+----------------------------------------------------------------------
+  · 头解析、cpio(newc) 读写逐字节可逆
+  · unpack → pack 往返，md5 回到原镜像
+  · --from-tree 往返，md5 回到原镜像
+  · 不带 --ref 重打包后：内核 / ramdisk / 头地址与原镜像一致
+  · 用 P100 配置 patch 出来的 md5 == 当初手工验证过的成品
+  · 规则没命中时拒绝出镜像（这条是安全底线）
+  · scatter 解析出 20 分区；只刷 boot 后只剩 1 个勾选
+  · dump-landmarks 能在偏移上认出 boot.img；偏移写错能报错
+  · --full 追加：原厂 system 解包、移植包 system 打包正好 838,860,800 B、ext4 魔数 0xEF53
+
+  这些数字不是“跑通了”，是和一串固定 md5 对齐的：只要哪天动了 cpio/gzip/规则
+  的实现，自测立刻变红，不会悄悄产出一个刷不进机器的镜像。
+
+
+附：本目录结构
+----------------------------------------------------------------------
+   mtkport.py                入口（python mtkport.py <命令>）
+   mtkport\                  实现
+     util.py                 日志/md5/找外部程序
+     cpio.py                 cpio(newc) 读写、目录树互转
+     bootimg.py              boot.img 解析/解包/inplace/rebuild
+     rules.py                规则引擎
+     systemimg.py            system.img 解包/打包/合并
+     scatter.py              scatter 与 dump 偏移校验
+     device.py               读设备档案（内核/芯片/分区表/屏幕/root）
+     romrepo.py              从 kc.fuquan.moe 选包与下载
+     backup.py               分区原样备份（双端 md5 校验）
+     autoport.py             把设备档案推导成 boot/system 规则（预设或草稿）
+     pipeline.py             一键流水线（auto 命令）
+     flash.py                刷机目录自检、拉起 SPFT、刷后验机
+     cli.py                  命令行
+   configs\                  机型配置（p100-lineage14.json 是可复现的真实案例）
+   自测-端到端.py            离线全套自测（拿真实文件比对 md5，33/37 项）
+   自测-自动化.py            自动化层自测（24 项；--net 再测站点选包，共 29 项）
+   _工作区\                  自测和试验的临时产物（可随便删）

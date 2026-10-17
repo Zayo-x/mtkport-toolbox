@@ -1,0 +1,95 @@
+{
+  "_说明": "新机型模板：复制一份，把路径和规则改成你要改的东西。JSON 不能写注释，所以说明都放在 _xxx 字段里，工具会忽略它们。",
+  "_怎么用": [
+    "1) python mtkport.py info 你的boot.img   —— 看 page/内核/ramdisk 槽位",
+    "2) python mtkport.py unpack 你的boot.img -o 工作\\boot",
+    "3) python mtkport.py ls 你的boot.img fstab   —— 找到你这台机器的 fstab 名字",
+    "4) 把下面的 edits 改成你要改的内容，然后",
+    "   python mtkport.py patch 你的boot.img --rules 这份配置.json -o 新boot.img --dry-run",
+    "5) 报告全绿再去掉 --dry-run 正式出镜像"
+  ],
+
+  "name": "【填机型名】",
+
+  "boot": {
+    "mode": "inplace",
+    "required": [
+      "default.prop",
+      "【填 fstab 文件名，如 fstab.mt6572】"
+    ],
+    "edits": [
+      {
+        "_示例1": "改 prop：有就替换，没有就追加",
+        "file": "default.prop",
+        "type": "prop",
+        "key": "ro.adb.secure",
+        "value": "0",
+        "why": "关掉 adb 授权弹窗",
+        "expect": "ro\\.adb\\.secure=0"
+      },
+      {
+        "_示例2": "纯文本替换；old 找不到就整份失败（这是特性，不是 bug）",
+        "file": "【fstab 文件名】",
+        "type": "replace",
+        "old": "【原文，比如 emmc@fat】",
+        "new": "【新文，比如 7】",
+        "why": "【为什么这么改】",
+        "optional": true
+      },
+      {
+        "_示例3": "正则替换：想一次改一整段时用；JSON 里反斜杠要写两次",
+        "file": "【某个 .rc】",
+        "type": "regex",
+        "pattern": "【正则，如 voldmanaged=sdcard0:\\S+】",
+        "repl": "【替换文本】",
+        "optional": true
+      },
+      {
+        "_示例4": "往文件末尾追加（\\n 会被还原成换行）",
+        "file": "init.rc",
+        "type": "append",
+        "text": "on property:sys.boot_completed=1\n    write /sys/kernel/【某个开关】 1",
+        "optional": true
+      },
+      {
+        "_示例5": "新增一个脚本条目：source 相对本配置文件所在目录",
+        "file": "sbin/我的脚本.sh",
+        "type": "add",
+        "source": "files/我的脚本.sh",
+        "mode": "0755",
+        "optional": true
+      },
+      {
+        "_示例6": "删掉一个条目",
+        "file": "【要删的文件名】",
+        "type": "delete",
+        "optional": true
+      },
+      {
+        "_示例7": "只改权限",
+        "file": "【文件名】",
+        "type": "chmod",
+        "mode": "0755",
+        "optional": true
+      }
+    ]
+  },
+
+  "system": {
+    "_语义": "以移植包(system 树)为底 → 用原厂 copy_from_stock 命中的文件覆盖 → 按 delete 删除",
+    "copy_from_stock": [
+      "_例：lib/hw/sensors.default.so",
+      "_例：lib/hw/gralloc.mt6572.so",
+      "_例：etc/firmware/*"
+    ],
+    "delete": [
+      "_例：etc/install-recovery.sh"
+    ]
+  },
+
+  "scatter": {
+    "_说明": "给 scatter-flash 用的提示；工具本身不读这一节",
+    "flash_only": ["BOOTIMG"],
+    "images": {"BOOTIMG": "boot-patched.img"}
+  }
+}
