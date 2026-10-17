@@ -122,6 +122,18 @@ Settings → MCP Servers → 添加：
 
 ## 6. 直接复制给 AI 的提示词
 
+**一句话版（连 MCP 配置一起让 AI 搞定）**：
+
+> 把本地 `D:\deepseek-harness\安卓折腾\移植工具箱\mcp_server.py` 注册成 MCP 服务器（服务名 `mtkport`，命令 `python`），配好后调用 `deploy` 工具帮我做环境体检和一键移植。
+
+| 客户端 | 一句话能配好吗 |
+|---|---|
+| Cursor | ✅ 最顺：AI 自己改 `.cursor/mcp.json`，改完刷新 MCP 即可 |
+| Claude Desktop | ⚠️ 改完要**重启客户端**才生效，重启后新对话再发 deploy 那句 |
+| Cline | ⚠️ 一般要 Settings → MCP Servers 手动加一次，再发 deploy 那句 |
+
+**完整版（MCP 已接好时用）**：
+
 接好 MCP 后，把下面这段发给 AI，它就会调 `deploy`（内部自动 doctor + auto）完成部署：
 
 > 我已经把「MTK 移植工具箱」通过 MCP 接好了，服务名叫 mtkport，里面有 deploy、scan、auto、backup、flash-mtk 等工具。

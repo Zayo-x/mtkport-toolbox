@@ -16,6 +16,12 @@
 
 ## 直接复制给 AI 的话
 
+**一句话版（连 MCP 一起配好 + 部署）**：
+
+> 把本地 `D:\deepseek-harness\安卓折腾\移植工具箱\mcp_server.py` 注册成 MCP 服务器（服务名 `mtkport`，命令 `python`），配好后调用 `deploy` 工具帮我做环境体检和一键移植。
+
+**完整版（MCP 已接好时用）**：
+
 接好 MCP 后（见 [`MCP接入说明.md`](MCP接入说明.md)），把下面这段发给你的 AI 即可开始部署：
 
 > 我已经把「MTK 移植工具箱」通过 MCP 接好了，服务名叫 mtkport，里面有 deploy、scan、auto、backup、flash-mtk 等工具。
